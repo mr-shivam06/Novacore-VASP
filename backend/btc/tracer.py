@@ -1170,6 +1170,11 @@ def trace(
         "status": status,
 
         "seed": seed,
+        "history_diagnostics": {
+            "transaction_limit_per_address": max_txs,
+            "truncated_addresses": sorted(truncated_addresses),
+            "seed_history_truncated": seed in truncated_addresses,
+        },
 
         "network": "Bitcoin",
 
