@@ -1,16 +1,15 @@
 VASP DESK v0.3 (BITCOIN)
 
-RUN (offline demo, synthetic data)
-Windows: .\start-demo.cmd     macOS/Linux: sh start-demo.sh
-Open http://127.0.0.1:8000, pick a sample, click Trace wallet.
-
 RUN LIVE (needs internet)
-Windows: .\start-live.cmd
-macOS/Linux: VASP_MODE=live sh start-demo.sh
+Windows: .\start-live.cmd     macOS/Linux: VASP_MODE=live sh start-demo.sh
 Uses Blockstream Esplora by default. Override VASP_ESPLORA_URL to use another compatible endpoint.
 Optional real labels go in backend/data/labels.csv; add only labels whose source and accuracy you verified.
 Live lookups send searched addresses to the configured public provider. Blockchain transactions are public;
 the provider can still observe your query. Live mode is read-only and does not send transactions.
+
+RUN OFFLINE DEMO (synthetic data)
+Windows: .\start-demo.cmd     macOS/Linux: sh start-demo.sh
+Open http://127.0.0.1:8000, pick a sample, click Trace wallet.
 
 TESTS
 .venv/bin/python -m pytest backend/tests -q     (Windows: .venv\Scripts\python.exe -m pytest backend/tests -q)
