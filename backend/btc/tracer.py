@@ -36,7 +36,7 @@ def trace(
 
     max_states=30,
 
-    max_txs=25,
+    max_txs=100,
 
 ):
 
@@ -48,7 +48,7 @@ def trace(
 
     max_states = max(1, min(int(max_states), 40))
 
-    max_txs = max(1, min(int(max_txs), 25))
+    max_txs = max(1, min(int(max_txs), 100))
 
     max_hops = max(0, min(int(max_hops), 5))
 
@@ -1170,6 +1170,11 @@ def trace(
         "status": status,
 
         "seed": seed,
+        "history_diagnostics": {
+            "transaction_limit_per_address": max_txs,
+            "truncated_addresses": sorted(truncated_addresses),
+            "seed_history_truncated": seed in truncated_addresses,
+        },
 
         "network": "Bitcoin",
 

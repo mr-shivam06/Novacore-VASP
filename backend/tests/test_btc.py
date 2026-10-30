@@ -122,6 +122,50 @@ def test_esplora_provider_paginates_and_parses():
     assert len(txs) == 10 and cut
 
 
+
+def test_esplora_paginates_when_full_page_includes_unconfirmed_tx():
+    def make(i, confirmed=True):
+        return {
+            'txid': f'{i:064x}',
+            'fee': 1,
+            'status': (
+                {'confirmed': True, 'block_time': 1760000000 + i}
+                if confirmed else {'confirmed': False}
+            ),
+            'vin': [{
+                'txid': 'a' * 64,
+                'vout': 0,
+                'prevout': {
+                    'scriptpubkey_address': 'x',
+                    'value': 5,
+                    'scriptpubkey_type': 'v0_p2wpkh',
+                },
+            }],
+            'vout': [{
+                'scriptpubkey_address': 'y',
+                'value': 4,
+                'scriptpubkey_type': 'v0_p2wpkh',
+            }],
+        }
+
+    first_page = [make(i) for i in range(24)] + [make(24, confirmed=False)]
+    second_page = [make(25), make(26)]
+    first_url = 'https://api.test/address/y/txs'
+    next_url = f'https://api.test/address/y/txs/chain/{23:064x}'
+    pages = {first_url: first_page, next_url: second_page}
+    calls = []
+
+    def fetch(url):
+        calls.append(url)
+        return pages[url]
+
+    provider = EsploraProvider('https://api.test', fetch=fetch, pause=0)
+    txs, truncated = provider.address_txs('y', 100)
+
+    assert len(txs) == 27
+    assert calls == [first_url, next_url]
+    assert not truncated
+
 def test_unconfirmed_has_no_time():
     tx = normalize_tx({'txid': 'a' * 64, 'vin': [], 'vout': [], 'status': {'confirmed': False}})
     assert tx['time'] is None and not tx['confirmed']

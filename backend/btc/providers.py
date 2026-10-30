@@ -133,11 +133,15 @@ class EsploraProvider:
                 if (tx.get("status") or {}).get("confirmed")
             ]
 
-            # Stop when we have enough records, reach the end of confirmed
-            # history, or receive no new transactions.
+            # Esplora pages may include unconfirmed transactions. Use the
+            # overall page length to decide whether another page may exist;
+            # use the last confirmed transaction as the pagination cursor.
+            page_may_have_more = len(page) >= self.PAGE and bool(confirmed)
+
             if (
                 len(raw) >= limit
-                or len(confirmed) < self.PAGE
+                or len(page) < self.PAGE
+                or not confirmed
                 or not fresh
             ):
                 break
@@ -153,7 +157,7 @@ class EsploraProvider:
             len(raw) > limit
             or (
                 len(raw) >= limit
-                and len(confirmed) >= self.PAGE
+                and page_may_have_more
             )
         )
 
@@ -165,3 +169,4 @@ class EsploraProvider:
         self._history_cache[cache_key] = (txs, truncated)
 
         return txs, truncated
+    
