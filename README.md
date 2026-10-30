@@ -108,6 +108,20 @@ Open the URL Vite prints (normally `http://127.0.0.1:5173`).
 Vite proxies `/api` to the Python server. No CORS configuration or API key is needed.
 Run `npm run build` after UI edits, then restart Python to use the compiled UI on port 8000.
 
+## Render deployment
+
+Deploy the backend as a Render Web Service from the repository root, with build command
+`pip install -r backend/requirements.txt` and start command
+`uvicorn backend.main:app --host 0.0.0.0 --port $PORT`. Set `VASP_CORS_ORIGINS` on
+the backend to the exact public frontend origin, for example
+`https://your-frontend.onrender.com` (no trailing slash).
+
+Deploy `frontend` as a Render Static Site with build command `npm ci && npm run build`
+and publish directory `dist`. Set `VITE_API_BASE_URL` to the backend's public origin,
+for example `https://your-backend.onrender.com` (no `/api` suffix), then redeploy the
+static site so Vite includes the setting in its build. If the frontend and backend
+origins change, update these two environment variables accordingly.
+
 ## Tests
 
 From project root, with dev requirements installed:

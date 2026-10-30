@@ -7,6 +7,7 @@ from pathlib import Path
 from uuid import uuid4
 from threading import Lock
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse, JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -43,6 +44,17 @@ DB_PATH = Path(os.environ.get('VASP_DB_PATH', str(BASE / 'cases.sqlite3'))).expa
 if not DB_PATH.is_absolute():
     DB_PATH = (Path.cwd() / DB_PATH).resolve()
 app = FastAPI(title='VASP Desk', version='0.3.0')
+CORS_ORIGINS = [
+    origin.strip().rstrip('/')
+    for origin in os.environ.get('VASP_CORS_ORIGINS', '').split(',')
+    if origin.strip()
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
+    allow_methods=['GET', 'POST', 'PATCH'],
+    allow_headers=['Content-Type'],
+)
 SCHEMA_LOCK = Lock()
 @contextmanager
 def db():
