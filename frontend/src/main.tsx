@@ -4,6 +4,7 @@ import {ReactFlow, Background, Controls, MarkerType, Position, type Node, type E
 import {LayoutDashboard, ScanSearch, FolderOpen, FileText, Building2, Settings, ShieldCheck, ArrowUpRight, ArrowRight, Download, Search, ChevronRight, Check, Copy, X, ExternalLink, Info, Activity, Network, Plus, Save, BookOpen} from 'lucide-react';
 import '@xyflow/react/dist/style.css';
 import './style.css';
+import {InvestigationAssistant} from './InvestigationAssistant';
 
 type Tx={id:string;from:string;to:string;amount:string;asset:string;timestamp:string;direction?:string;kind?:string;txid?:string};
 type Label={entity:string;source:string;type:string;verified:boolean};
@@ -82,4 +83,4 @@ function App(){
  {draft!==null&&<div className="modal-backdrop" onClick={e=>{if(e.target===e.currentTarget)setDraft(null);}}><section className="modal" role="dialog" aria-modal="true" aria-label="Sample request draft" onKeyDown={e=>{if(e.key==='Escape')setDraft(null);}}><div className="panel-heading"><h2>Sample request draft</h2><button className="icon-button" aria-label="Close draft" onClick={()=>setDraft(null)}><X size={20}/></button></div><Tag tone="amber">DEMO ONLY · NOT SENT</Tag><label className="notes-label">Editable draft<textarea autoFocus rows={15} value={draft} onChange={e=>setDraft(e.target.value)}/></label><div className="form-footer"><button className="button" onClick={()=>copy(draft)}><Copy size={16}/>Copy text</button><button className="primary" onClick={()=>saveText(draft,'sample-request-draft.txt')}><Download size={16}/>Download draft</button></div></section></div>}
  </div>;
 }
-createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);
+createRoot(document.getElementById('root')!).render(<React.StrictMode><><App/><InvestigationAssistant/></></React.StrictMode>);
