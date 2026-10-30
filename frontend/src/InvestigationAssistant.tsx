@@ -89,18 +89,24 @@ function renderAssistantContent(content: string) {
   return elements;
 }
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
+
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, init);
+  const response = await fetch(`${API_BASE_URL}${url}`, init);
+
   if (!response.ok) {
     let message = 'The request could not be completed.';
+
     try {
       const body = await response.json();
       message = body.detail || message;
     } catch {
-      // The response may not contain JSON.
+      // Response may not contain JSON.
     }
+
     throw new Error(message);
   }
+
   return response.json();
 }
 
