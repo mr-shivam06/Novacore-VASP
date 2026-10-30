@@ -1,4 +1,4 @@
-import {useEffect, useState, type FormEvent, type ReactNode} from 'react';
+import {useEffect, useRef, useState, type FormEvent, type PointerEvent, type ReactNode} from 'react';
 import {Bot, Send, X} from 'lucide-react';
 import './assistant.css';
 
@@ -6,6 +6,8 @@ type SavedCase = {id: string; case_ref: string; seed: string};
 type Health = {ai?: {enabled: boolean; model: string}};
 type Message = {role: 'user' | 'model'; content: string};
 type AssistantStatus = 'checking' | 'enabled' | 'missing' | 'outdated' | 'unavailable';
+type AssistantSize = {width: number; height: number};
+type ResizeStart = AssistantSize & {x: number; y: number};
 
 function renderAssistantContent(content: string) {
   const lines = content.split('\n');
@@ -106,6 +108,8 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
 
 export function InvestigationAssistant() {
   const [open, setOpen] = useState(false);
+  const [panelSize, setPanelSize] = useState<AssistantSize | null>(null);
+  const resizeStart = useRef<ResizeStart | null>(null);
   const [cases, setCases] = useState<SavedCase[]>([]);
   const [caseId, setCaseId] = useState('');
   const [model, setModel] = useState('');
@@ -190,8 +194,35 @@ export function InvestigationAssistant() {
     }
   }
 
+  function startResize(event: PointerEvent<HTMLButtonElement>) {
+    const panel = event.currentTarget.parentElement;
+    if (!panel) return;
+    const bounds = panel.getBoundingClientRect();
+    resizeStart.current = {width: bounds.width, height: bounds.height, x: event.clientX, y: event.clientY};
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  }
+
+  function resizePanel(event: PointerEvent<HTMLButtonElement>) {
+    if (!resizeStart.current) return;
+    const minimumWidth = Math.min(320, window.innerWidth - 32);
+    const minimumHeight = Math.min(360, window.innerHeight - 100);
+    const maximumWidth = window.innerWidth - 32;
+    const maximumHeight = window.innerHeight - 100;
+    const width = Math.min(maximumWidth, Math.max(minimumWidth, resizeStart.current.width - (event.clientX - resizeStart.current.x)));
+    const height = Math.min(maximumHeight, Math.max(minimumHeight, resizeStart.current.height - (event.clientY - resizeStart.current.y)));
+    setPanelSize({width, height});
+  }
+
+  function stopResize(event: PointerEvent<HTMLButtonElement>) {
+    resizeStart.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+  }
+
   return <div className="assistant-widget">
-    {open && <section className="assistant-panel" role="dialog" aria-modal="false" aria-labelledby="assistant-title">
+    {open && <section className="assistant-panel" style={panelSize || undefined} role="dialog" aria-modal="false" aria-labelledby="assistant-title">
+      <button className="assistant-resize-handle" type="button" aria-label="Resize assistant panel" title="Resize assistant panel"
+        onPointerDown={startResize} onPointerMove={resizePanel} onPointerUp={stopResize} onPointerCancel={stopResize}/>
       <header className="assistant-header">
         <div><Bot size={19}/><div><h2 id="assistant-title">AI Investigation Assistant</h2><small>{model || 'Google Gemini API'}</small></div></div>
         <button type="button" aria-label="Close assistant" onClick={() => setOpen(false)}><X size={18}/></button>
