@@ -11,16 +11,27 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse, JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator, model_validator
+from dotenv import load_dotenv
 from .btc.labels import load_labels
 from .btc.providers import EsploraProvider, FixtureProvider, ProviderError
 from .btc.tracer import trace
 from .btc.validate import is_valid_address, normalize_address
 from .exports import markdown_report, csv_report, printable_report
+from .ai.ai_Service import AIServiceError, generate_assistant_reply
 from typing import Literal
 BASE = Path(__file__).resolve().parent
-# Keep fixture mode as the safe default. Live mode is enabled explicitly by
-# setting VASP_MODE=live in start-live.cmd.
-MODE = os.environ.get('VASP_MODE', 'fixture').strip().lower()
+
+
+def _load_backend_dotenv() -> None:
+    load_dotenv(BASE / '.env')
+    load_dotenv(BASE.parent / '.env')
+
+
+_load_backend_dotenv()
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '').strip()
+GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemma-4-26b-a4b-it').strip()
+# Use live blockchain data by default. Fixture mode is an explicit opt-in.
+MODE = os.environ.get('VASP_MODE', 'live').strip().lower()
 if MODE not in ('fixture', 'live'):
     raise RuntimeError("VASP_MODE must be 'fixture' or 'live'")
 ESPLORA_URL = os.environ.get(
@@ -95,6 +106,27 @@ class TraceRequest(BaseModel):
         if self.start and self.end and self.start > self.end:
             raise ValueError('Start must not be after end')
         return self
+class AssistantMessage(BaseModel):
+    role: Literal['user', 'model']
+    content: str = Field(min_length=1, max_length=2000)
+    @field_validator('content')
+    @classmethod
+    def require_message_text(cls, value):
+        if not value.strip():
+            raise ValueError('Messages cannot be blank')
+        return value
+class AssistantRequest(BaseModel):
+    messages: list[AssistantMessage] = Field(min_length=1, max_length=10)
+    @model_validator(mode='after')
+    def validate_conversation(self):
+        if self.messages[0].role != 'user' or self.messages[-1].role != 'user':
+            raise ValueError('Conversation must start and end with an investigator message')
+        if any(
+            current.role == previous.role
+            for previous, current in zip(self.messages, self.messages[1:])
+        ):
+            raise ValueError('Conversation messages must alternate roles')
+        return self
 @app.get('/api/health')
 def health():
     return {
@@ -103,6 +135,11 @@ def health():
         'labels': len(LABELS),
         'labels_file': str(LABELS_PATH),
         'provider': 'esplora' if MODE == 'live' else 'fixture',
+        'ai': {
+            'enabled': bool(GEMINI_API_KEY),
+            'provider': 'Google Gemini API',
+            'model': GEMINI_MODEL,
+        },
         'warning': (
             'No live VASP labels loaded; attribution to known VASPs is unavailable.'
             if MODE == 'live' and not LABELS
@@ -299,6 +336,83 @@ def get_result(case_id):
         'case_ref': row[4],
     })
     return result
+def _assistant_case_context(result):
+    profile = result.get('profile') or {}
+    candidates = []
+    for candidate in (result.get('candidates') or [])[:20]:
+        label = candidate.get('label') or {}
+        candidates.append({
+            'service': candidate.get('vasp'),
+            'address': candidate.get('address'),
+            'hops': candidate.get('hops'),
+            'match': candidate.get('match'),
+            'confidence': candidate.get('confidence'),
+            'confidence_score': candidate.get('confidence_score'),
+            'attribution_status': candidate.get('attribution_status'),
+            'label': {
+                'entity': label.get('entity'),
+                'source': label.get('source'),
+                'verified': label.get('verified') is True,
+            },
+            'reasons': (candidate.get('reasons') or [])[:10],
+            'transactions': [
+                {
+                    'id': transaction.get('id'),
+                    'from': transaction.get('from'),
+                    'to': transaction.get('to'),
+                    'amount': transaction.get('amount'),
+                    'timestamp': transaction.get('timestamp'),
+                }
+                for transaction in (candidate.get('transactions') or [])[:10]
+            ],
+        })
+    return {
+        'case_ref': result.get('case_ref'),
+        'network': result.get('network'),
+        'mode': result.get('mode'),
+        'status': result.get('status'),
+        'seed': result.get('seed'),
+        'profile': {
+            key: profile.get(key)
+            for key in (
+                'tx_count', 'first_seen', 'last_seen', 'total_received',
+                'total_sent', 'balance', 'history_complete', 'deposit_like',
+            )
+            if key in profile
+        },
+        'limitations': (result.get('limitations') or [])[:30],
+        'candidates': candidates,
+        'transactions': [
+            {
+                'id': transaction.get('id'),
+                'from': transaction.get('from'),
+                'to': transaction.get('to'),
+                'amount': transaction.get('amount'),
+                'timestamp': transaction.get('timestamp'),
+                'direction': transaction.get('direction'),
+            }
+            for transaction in (result.get('transactions') or [])[:100]
+        ],
+    }
+@app.post('/api/cases/{case_id}/assistant')
+def ask_assistant(case_id: str, request: AssistantRequest):
+    if not GEMINI_API_KEY:
+        raise HTTPException(
+            503,
+            'AI assistant is not configured. Set GEMINI_API_KEY on the backend and restart it.',
+        )
+    result = get_result(case_id)
+    messages = [message.model_dump() for message in request.messages]
+    try:
+        answer = generate_assistant_reply(
+            messages,
+            _assistant_case_context(result),
+            GEMINI_API_KEY,
+            GEMINI_MODEL,
+        )
+    except AIServiceError as error:
+        raise HTTPException(502, str(error)) from error
+    return {'answer': answer, 'model': GEMINI_MODEL}
 @app.get('/api/cases/{case_id}')
 def case(case_id: str):
     return get_result(case_id)

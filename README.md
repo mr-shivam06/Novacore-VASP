@@ -21,6 +21,43 @@ The app binds to your local computer. It has no authentication and is not ready 
 Live mode sends searched Bitcoin addresses to the configured public Esplora endpoint; use it only
 if you are comfortable disclosing those queries to that provider. It is read-only and never broadcasts transactions.
 
+## AI Investigation Assistant
+
+The floating assistant uses Google's Gemini API with the `gemma-4-26b-a4b-it` model by default.
+Set a Google AI Studio API key in `backend/.env`, a project-root `.env`, or the backend process
+environment before starting the server. The backend-specific file takes precedence over the
+project-root file; existing process environment variables take precedence over both. Add:
+
+```dotenv
+GEMINI_API_KEY=your-google-ai-studio-key
+GEMINI_MODEL=gemma-4-26b-a4b-it
+```
+
+Alternatively, set the backend process environment variables:
+
+Windows PowerShell:
+
+```powershell
+$env:GEMINI_API_KEY = "your-google-ai-studio-key"
+$env:GEMINI_MODEL = "gemma-4-26b-a4b-it"
+.\start-demo.cmd
+```
+
+macOS/Linux:
+
+```sh
+GEMINI_API_KEY="your-google-ai-studio-key" GEMINI_MODEL="gemma-4-26b-a4b-it" sh start-demo.sh
+```
+
+`GEMINI_MODEL` can be changed to another model ID enabled for your Google API key. The key stays
+on the backend and is never returned by `/api/health` or sent to the browser. The assistant is
+disabled when `GEMINI_API_KEY` is unset. Existing process environment variables take precedence
+over values in `.env`; restart the server after changing either source. Its replies are advisory,
+not evidence or legal conclusions.
+When you submit a message, the selected case's bounded transaction summary is sent to Google; do not
+use it with sensitive or restricted case data unless that transfer is authorized. Chat history is
+held in the browser only and is not saved with the case.
+
 
 ## Website features
 
@@ -139,6 +176,8 @@ date filters, invalid requests, persistence and report retrieval.
 - `frontend/src/main.tsx`: overview, investigation graph, cases, reports, directory, settings, and guide.
 - `backend/exports.py`: evidence exports and escaped printable reports.
 - `backend/main.py`: HTTP API, input validation, SQLite storage and report endpoint.
+- `backend/ai/`: on-demand Google Gemini API client and investigation prompt.
+- `frontend/src/InvestigationAssistant.tsx`: case-aware AI chat interface.
 - `backend/engine.py`: bounded traversal with per-path timestamps and cycle avoidance.
 - `backend/data/demo.json`: explicit synthetic records and label provenance.
 - `frontend/dist`: compiled frontend for Python-only startup.
@@ -154,8 +193,8 @@ Bitcoin mainnet address history from Esplora, but does not establish exact prove
 balances or wallet ownership. Paths are bounded by hops and 250 explored states, and address
 history is capped. Mixers, CoinJoin, cross-chain bridges and swaps are not resolved. Labels in the
 live CSV are not independently validated by the application; existing demo labels must never be
-used as real exchange evidence. There is no login, AI inference, SAHYOG connector, KYC access or
-freezing capability.
+used as real exchange evidence. There is no login, SAHYOG connector, KYC access or freezing capability. The AI assistant does not
+establish wallet ownership or automatically make investigative decisions.
 
 Before relying on live results, validate the provider behavior and attribution accuracy on
 independent cases. Record data coverage and verify each label's source and licence.
