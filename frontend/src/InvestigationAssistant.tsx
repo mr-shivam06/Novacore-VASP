@@ -101,7 +101,17 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
 
     try {
       const body = await response.json();
-      message = body.detail || message;
+      if (Array.isArray(body.detail)) {
+        message = body.detail.map((error: {loc?: (string | number)[]; msg?: string}) => {
+          const location = Array.isArray(error.loc)
+            ? error.loc.filter(part => part !== 'body').join(' > ')
+            : '';
+          const detail = typeof error.msg === 'string' ? error.msg : 'Invalid request.';
+          return location ? `${location}: ${detail}` : detail;
+        }).join('; ');
+      } else if (typeof body.detail === 'string') {
+        message = body.detail;
+      }
     } catch {
       // Response may not contain JSON.
     }

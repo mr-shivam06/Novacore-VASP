@@ -108,12 +108,18 @@ class TraceRequest(BaseModel):
         return self
 class AssistantMessage(BaseModel):
     role: Literal['user', 'model']
-    content: str = Field(min_length=1, max_length=2000)
+    content: str = Field(min_length=1, max_length=12000)
     @field_validator('content')
     @classmethod
     def require_message_text(cls, value):
         if not value.strip():
             raise ValueError('Messages cannot be blank')
+        return value
+    @field_validator('content')
+    @classmethod
+    def limit_investigator_message(cls, value, info):
+        if info.data.get('role') == 'user' and len(value) > 2000:
+            raise ValueError('Investigator messages must be 2000 characters or fewer')
         return value
 class AssistantRequest(BaseModel):
     messages: list[AssistantMessage] = Field(min_length=1, max_length=10)

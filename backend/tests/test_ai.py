@@ -109,6 +109,28 @@ def test_assistant_requires_server_api_key_and_valid_conversation(tmp_path, monk
     assert invalid.status_code == 422
 
 
+def test_assistant_accepts_long_previous_model_response(tmp_path, monkeypatch):
+    test_client, main = client(tmp_path, monkeypatch, api_key='test-key')
+    seed = test_client.get('/api/examples').json()[0]['address']
+    case = test_client.post('/api/trace', json={'address': seed}).json()
+    monkeypatch.setattr(
+        main,
+        'generate_assistant_reply',
+        lambda messages, context, api_key, model: 'Follow-up response',
+    )
+
+    response = test_client.post(
+        f"/api/cases/{case['id']}/assistant",
+        json={'messages': [
+            {'role': 'user', 'content': 'First question'},
+            {'role': 'model', 'content': 'x' * 3000},
+            {'role': 'user', 'content': 'Follow-up question'},
+        ]},
+    )
+
+    assert response.status_code == 200
+
+
 def test_gemini_request_uses_configured_model_and_parses_reply(monkeypatch):
     from backend.ai import ai_Service
 
